@@ -2,7 +2,7 @@
 pragma solidity 0.8.27;
 
 // Import the `School` contract (assuming it exists in the same directory).
-import {School} from "./School.sol";
+import {School} from "./school.sol";
 
 /// @title Staff Workers Contract
 /// @notice This contract allows managing staff workers for a school, including adding, retrieving, and deleting staff information.
@@ -23,6 +23,8 @@ contract staffWorkers is School {
 
     // Variable to keep track of the number of staff workers.
     uint256 public staffCount;
+    event deletedStaff(uint256 _id);
+    event staffAdded(string _name, string _department, uint256 _staffID, uint256 _salary,address _staffAddress);
 
     /// @notice Adds a new staff member to the contract.
     /// @param _name The name of the staff member.
@@ -55,6 +57,7 @@ contract staffWorkers is School {
 
         // Increment the total staff count.
         staffCount++;
+        emit staffAdded(_name, _department, _staffID, _salary, _staffAddress);
 
         // Return the staff ID of the newly added staff member.
         return _staffID;
@@ -116,6 +119,7 @@ contract staffWorkers is School {
 
         // Decrease the total staff count.
         staffCount--;
+        emit deletedStaff(_id);
 
         // Return a message confirming the deletion of the staff member.
         return "The staff worker with ID of {_staffid} has been deleted.";
