@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: MIT
+<<<<<<< HEAD
 pragma solidity ^0.8.0;
 
 
 contract School {
     enum SchoolCategory {
+=======
+pragma solidity ^0.8.27;
+import "./staff.sol";
+import "./Contractors.sol";
+contract School is staffWorkers,SchoolContractors{
+        enum SchoolCategory {
+>>>>>>> 67cbaf681c24ae118ea65b3635139b47f6c4c816
         PUBLIC,
         PRIVATE
     }
@@ -61,4 +69,5 @@ uint256  public totalFunds;
         totalFunds += msg.value;
        
     }
+
 }
