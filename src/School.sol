@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.27;
 import "./staff.sol";
 import "./Contractors.sol";
 contract School is staffWorkers,SchoolContractors{
-        enum SchoolCategory {
+    enum SchoolCategory {
         PUBLIC,
         PRIVATE
     }
