@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
-
-contract School {
-    enum SchoolCategory {
+import "./staff.sol";
+import "./Contractors.sol";
+contract School is staffWorkers,SchoolContractors{
+        enum SchoolCategory {
         PUBLIC,
         PRIVATE
     }
@@ -20,17 +21,17 @@ contract School {
         SchoolType schoolType;
         SchoolCategory schoolCategory;
     }
-
+uint256  public totalFunds;
     mapping(uint256 => SchoolDetails) private  schoolDetails;
     mapping(address => bool) private  registeredSchools; 
     event registeredSchool(string _schoolname);
 
-    function registerSchool(
+  constructor (
         string memory _schoolName, 
         SchoolType _schoolType, 
         SchoolCategory _schoolCategory, 
         uint256 _id
-    ) public returns (SchoolDetails memory) {
+    )  {
        
         require(!registeredSchools[msg.sender], "An address can only register one school");
 
@@ -45,19 +46,20 @@ contract School {
         schoolDetails[_id] = newSchool;  
         registeredSchools[msg.sender] = true;  
 
-        emit registeredSchool(_schoolname);
+        emit registeredSchool(_schoolName);
 
-        return newSchool;
+       
     }
 
     function getSchool(uint256 _id) public view returns (SchoolDetails memory) {
        
         return schoolDetails[_id];
     }
-
-     function receiveFunds() public payable {
+    
+  function receiveFunds() public payable {
         require(msg.value > 0, "No Ether sent.");
         totalFunds += msg.value;
-        emit PaymentReceived(msg.sender, msg.value);
+       
     }
+
 }
