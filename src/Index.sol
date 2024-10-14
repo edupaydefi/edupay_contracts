@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.27;
 
-import "./School1.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract Factory is School {
+import "./School.sol";
+
+contract Factory is School,AccessControl {
       struct StudentStruct{
         uint256 id;
 string name;
