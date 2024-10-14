@@ -2,11 +2,11 @@
 pragma solidity ^0.8.27;
 
 // Importing the staff and contractors contracts
-import "./staff.sol"; // Importing the staffWorkers contract
+//import "./staff.sol"; // Importing the staffWorkers contract
 import "./Contractors.sol"; // Importing the SchoolContractors contract
 
 // Main contract that combines functionalities from staffWorkers and SchoolContractors
-contract School is staffWorkers, SchoolContractors {
+contract School is SchoolContractors {
 
     // Enum representing the categories of schools
     enum SchoolCategory {
