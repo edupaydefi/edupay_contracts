@@ -1,82 +1,224 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity 0.8.27;
 
-// Importing the staff and contractors contracts
-//import "./staff.sol"; // Importing the staffWorkers contract
-import "./Contractors.sol"; // Importing the SchoolContractors contract
+import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "./Student.sol";
+import "./Receipts.sol";
 
-// Main contract that combines functionalities from staffWorkers and SchoolContractors
-contract School is SchoolContractors {
+contract SchoolContract is Ownable {
+    // USDC Token setup
+    address public usdcAddress = 0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d;
+    IERC20 public usdcToken;
 
-    // Enum representing the categories of schools
-    enum SchoolCategory {
-        PUBLIC,   // Represents public schools
-        PRIVATE   // Represents private schools
+    constructor() Ownable(msg.sender) {
+        usdcToken = IERC20(usdcAddress);
     }
 
-    // Enum representing the types of schools
-    enum SchoolType {
-        PRIMARY,  // Represents primary schools
-        HIGHSCHOOL, // Represents high schools
-        COLLEGE    // Represents colleges
+    struct SchoolStruct {
+        string name;
+        string location;
+        uint256 id;
+        address payable wallet;
+        bool isRegistered;
+        string email;
+        string description;
+        string category;
+        uint256 registrationDate;
+        uint256 balance;
     }
 
-    // Struct representing the details of a school
-    struct SchoolDetails {
-        uint256 id;                     // Unique identifier for the school
-        address schoolAddress;          // Address of the school (contract deployer)
-        string schoolName;              // Name of the school
-        SchoolType schoolType;          // Type of the school (PRIMARY, HIGHSCHOOL, COLLEGE)
-        SchoolCategory schoolCategory;   // Category of the school (PUBLIC, PRIVATE)
+    // State variables
+    mapping(address => SchoolStruct) public schools;
+    mapping(address => bool) public isSchoolRegistered;
+    mapping(address => bool) public isLoggedIn;
+    uint256 private _currentSchoolId;
+
+    // Events
+    event SchoolSelfRegistered(address indexed schoolAddress, string name, uint256 id, uint256 timestamp);
+    event SchoolProfileUpdated(address indexed school, string name, uint256 timestamp);
+    event SchoolDeregistered(address indexed school, uint256 timestamp);
+    event PaymentReceived(address indexed from, address indexed school, uint256 amount, string reason);
+    event PaymentSent(address indexed from, address indexed to, uint256 amount, string reason);
+    event SchoolLoggedIn(address indexed school, uint256 timestamp);
+    event SchoolLoggedOut(address indexed school, uint256 timestamp);
+
+    // Custom errors
+    error SchoolAlreadyRegistered();
+    error SchoolNotRegistered();
+    error SchoolAlreadyLoggedIn();
+    error SchoolNotLoggedIn();
+    error InsufficientBalance();
+    error InvalidAmount();
+    error TransferFailed();
+    error InvalidAddress();
+    error EmptyStringNotAllowed();
+
+    // Modifiers
+    modifier onlyRegisteredSchool() {
+        if (!isSchoolRegistered[msg.sender]) revert SchoolNotRegistered();
+        _;
     }
 
-    // Public variable to track the total funds received by the school
-    uint256 public totalFunds;
+    modifier onlyLoggedInSchool() {
+        if (!isLoggedIn[msg.sender]) revert SchoolNotLoggedIn();
+        _;
+    }
 
-    // Mapping to store school details by their unique ID
-    mapping(uint256 => SchoolDetails) private schoolDetails;
+    modifier validString(string memory str) {
+        if (bytes(str).length == 0) revert EmptyStringNotAllowed();
+        _;
+    }
 
-    // Mapping to track whether a school has been registered by an address
-    mapping(address => bool) private registeredSchools; 
+    // Self-registration function for schools
+    function registerSchool(
+        string memory _name,
+        string memory _location,
+        string memory _email,
+        string memory _description,
+        string memory _category
+    ) external 
+      validString(_name)
+      validString(_email) 
+      returns (uint256) {
+        if (isSchoolRegistered[msg.sender]) revert SchoolAlreadyRegistered();
+        if (msg.sender == address(0)) revert InvalidAddress();
 
-    // Event emitted when a new school is registered
-    event registeredSchool(string _schoolname);
+        _currentSchoolId++;
 
-    // Constructor to initialize a new school
-    constructor (
-        string memory _schoolName,      // School name provided at deployment
-        SchoolType _schoolType,         // School type (PRIMARY, HIGHSCHOOL, COLLEGE)
-        SchoolCategory _schoolCategory,  // School category (PUBLIC, PRIVATE)
-        uint256 _id                     // Unique ID for the school
-    ) {
-        // Ensure the sender has not already registered a school
-        require(!registeredSchools[msg.sender], "An address can only register one school");
-
-        // Creating a new instance of SchoolDetails
-        SchoolDetails memory newSchool = SchoolDetails({
-            schoolAddress: msg.sender,  // Setting the address of the school to the sender's address
-            id: _id,                   // Assigning the provided ID
-            schoolName: _schoolName,   // Assigning the provided school name
-            schoolType: _schoolType,    // Assigning the provided school type
-            schoolCategory: _schoolCategory // Assigning the provided school category
+        schools[msg.sender] = SchoolStruct({
+            name: _name,
+            location: _location,
+            id: _currentSchoolId,
+            wallet: payable(msg.sender),
+            isRegistered: true,
+            email: _email,
+            description: _description,
+            category: _category,
+            registrationDate: block.timestamp,
+            balance: 0
         });
 
-        // Storing the new school's details in the mapping
-        schoolDetails[_id] = newSchool;  
-        registeredSchools[msg.sender] = true; // Marking the sender's address as registered
+        isSchoolRegistered[msg.sender] = true;
 
-        // Emitting the event for the newly registered school
-        emit registeredSchool(_schoolName);
+        emit SchoolSelfRegistered(msg.sender, _name, _currentSchoolId, block.timestamp);
+        return _currentSchoolId;
     }
 
-    // Function to retrieve the details of a school by its unique ID
-    function getSchool(uint256 _id) public view returns (SchoolDetails memory) {
-        return schoolDetails[_id]; // Returning the school details from the mapping
+    function loginSchool() external onlyRegisteredSchool returns (string memory, uint256, address) {
+        if (isLoggedIn[msg.sender]) revert SchoolAlreadyLoggedIn();
+        
+        SchoolStruct memory school = schools[msg.sender];
+        isLoggedIn[msg.sender] = true;
+        
+        emit SchoolLoggedIn(msg.sender, block.timestamp);
+        return (school.name, school.id, school.wallet);
     }
-    
-    // Function to receive funds (Ether) sent to the contract
-    function receiveFunds() public payable {
-        require(msg.value > 0, "No Ether sent."); // Ensure that the value sent is greater than zero
-        totalFunds += msg.value; // Accumulate the received funds to totalFunds
+
+    function logoutSchool() external onlyLoggedInSchool returns (string memory) {
+        isLoggedIn[msg.sender] = false;
+        emit SchoolLoggedOut(msg.sender, block.timestamp);
+        return "Logged Out Successfully";
+    }
+
+    function updateSchoolProfile(
+        string memory _name,
+        string memory _location,
+        string memory _email,
+        string memory _description,
+        string memory _category
+    ) external 
+      onlyRegisteredSchool 
+      onlyLoggedInSchool 
+      validString(_name)
+      validString(_email)
+      returns (bool) {
+        SchoolStruct storage school = schools[msg.sender];
+        
+        school.name = _name;
+        school.location = _location;
+        school.email = _email;
+        school.description = _description;
+        school.category = _category;
+
+        emit SchoolProfileUpdated(msg.sender, _name, block.timestamp);
+        return true;
+    }
+
+    function deregisterSchool() external onlyRegisteredSchool onlyLoggedInSchool {
+        require(schools[msg.sender].balance == 0, "Withdraw all funds before deregistering");
+        delete schools[msg.sender];
+        isSchoolRegistered[msg.sender] = false;
+        isLoggedIn[msg.sender] = false;
+        emit SchoolDeregistered(msg.sender, block.timestamp);
+    }
+
+    // Payment functions
+    function payStaff(address payable _staffAddress, uint256 _amount, string memory _reason) 
+        external 
+        onlyRegisteredSchool 
+        onlyLoggedInSchool 
+        returns (string memory) 
+    {
+        if (_amount == 0) revert InvalidAmount();
+        if (schools[msg.sender].balance < _amount) revert InsufficientBalance();
+
+        bool success = usdcToken.transfer(_staffAddress, _amount);
+        if (!success) revert TransferFailed();
+
+        schools[msg.sender].balance -= _amount;
+
+        emit PaymentSent(msg.sender, _staffAddress, _amount, _reason);
+        return "Paymen successfullt to staff";
+    }
+
+    // Receive Payment functions
+    function receivePayment() 
+        external 
+        view
+        onlyRegisteredSchool 
+        onlyLoggedInSchool 
+        returns (address payable) 
+    {
+        
+        return schools[msg.sender].wallet ;
+    }
+
+    function withdrawFunds(uint256 _amount) 
+        external 
+        onlyRegisteredSchool 
+        onlyLoggedInSchool 
+    {
+        if (_amount == 0) revert InvalidAmount();
+        if (schools[msg.sender].balance < _amount) revert InsufficientBalance();
+
+        bool success = usdcToken.transfer(msg.sender, _amount);
+        if (!success) revert TransferFailed();
+
+        schools[msg.sender].balance -= _amount;
+        emit PaymentSent(address(this), msg.sender, _amount, "Withdrawal");
+    }
+
+    // View functions
+    function getSchoolBalance() external view onlyRegisteredSchool onlyLoggedInSchool returns (uint256) {
+        return schools[msg.sender].balance;
+    }
+
+    function getSchoolDetails() external view onlyRegisteredSchool onlyLoggedInSchool returns (SchoolStruct memory) {
+        return schools[msg.sender];
+    }
+
+    function verifySchool(address _schoolAddress) external view returns (bool, string memory) {
+        if (!isSchoolRegistered[_schoolAddress]) {
+            return (false, "School not registered");
+        }
+        return (true, schools[_schoolAddress].name);
+    }
+
+    // Receive function for direct payments
+    receive() external payable {
+        if (!isSchoolRegistered[msg.sender]) revert SchoolNotRegistered();
+        schools[msg.sender].balance += msg.value;
+        emit PaymentReceived(msg.sender, address(this), msg.value, "Direct Transfer");
     }
 }
